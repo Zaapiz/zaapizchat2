@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zaapiz Chat Room</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Username modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 2.5rem;
+            width: 380px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .modal h2 {
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #6699ff, #ff7ab8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .modal p { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.5rem; }
+        .modal input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 1rem;
+            outline: none;
+            margin-bottom: 1rem;
+            transition: border-color 0.2s;
+        }
+        .modal input:focus { border-color: #6699ff; }
+        .modal button {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, #6699ff, #ff7ab8);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .modal button:hover { opacity: 0.9; }
+
+        /* Header */
+        .chat-header {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #334155;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6699ff, #ff7ab8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .chat-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        .donate-link {
+            text-decoration: none; font-size: 0.8rem; font-weight: 600;
+            background: linear-gradient(135deg, #10b981, #6ee7b7); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; white-space: nowrap;
+        }
+        .donate-link:hover { opacity: 0.8; }
+        .goal-wrap {
+            display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+        }
+        .goal-bar {
+            width: 90px; height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden;
+            border: 1px solid #334155;
+        }
+        .goal-fill {
+            height: 100%; border-radius: 5px; transition: width 0.4s ease;
+            background: linear-gradient(135deg, #10b981, #6ee7b7);
+        }
+        .goal-text { font-size: 0.65rem; color: #64748b; }
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Messages */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .messages::-webkit-scrollbar { width: 6px; }
+        .messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        .msg {
+            max-width: 75%;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg.self { align-self: flex-end; }
+        .msg.other { align-self: flex-start; }
+
+        .msg-bubble {
+            padding: 0.6rem 1rem;
+            border-radius: 14px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .msg.self .msg-bubble {
+            background: linear-gradient(135deg, #6699ff, #8b5cf6);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .msg.other .msg-bubble {
+            background: #334155;
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-meta {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 2px;
+            padding: 0 4px;
+        }
+        .msg.self .msg-meta { text-align: right; }
+        .msg-name {
+            font-weight: 600;
+            color: #ff7ab8;
+        }
+
+        .msg-group-header {
+            font-size: 0.7rem;
+            color: #64748b;
+            padding: 0 4px;
+            margin-top: 0.5rem;
+        }
+        .msg.self .msg-group-header { text-align: right; }
+
+        .system-msg {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            padding: 0.5rem 0;
+        }
+
+        .read-receipt { font-size: 0.7rem; color: #64748b; margin-top:4px; }
+
+        /* Typing indicator styling */
+        #typingIndicator { padding: 0 1.5rem 0.5rem; display:flex; align-items:center; gap:8px; min-height:18px; }
+        .typing-bubble { width:10px; height:10px; border-radius:50%; background:#fff; opacity:0; transform:scale(0.8); transition:opacity 0.2s, transform 0.2s; }
+        .typing-bubble.show { opacity:1; transform:scale(1); animation: typingBlink 1s ease-in-out infinite; }
+
+        @keyframes typingBlink {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.15; transform: scale(0.85); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .typing-text { color:#ffffff; font-weight:700; font-size:0.9rem; }
+
+        /* Input */
+        .chat-input {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid #334155;
+            padding: 1rem 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .chat-input input:focus { border-color: #6699ff; }
+        .chat-input button {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #6699ff, #ff7ab8);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+        .chat-input button:hover { opacity: 0.9; }
+        .chat-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Admin */
+        .admin-toggle { font-size: 0.75rem; color: #64748b; cursor: pointer; margin-bottom: 1rem; }
+        .admin-toggle:hover { color: #94a3b8; }
+        .admin-field { display: none; margin-bottom: 1rem; }
+        .admin-field input {
+            width: 100%; padding: 0.8rem 1rem; border: 1px solid #334155; border-radius: 10px;
+            background: #0f172a; color: #e2e8f0; font-size: 1rem; outline: none;
+        }
+        .admin-badge {
+            display: inline-block; font-size: 0.6rem; background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white; padding: 1px 6px; border-radius: 4px; margin-left: 4px; font-weight: 700;
+            vertical-align: middle;
+        }
+        .msg-actions {
+            display: none; gap: 0.3rem; margin-top: 3px; padding: 0 4px;
+        }
+        .msg:hover .msg-actions { display: flex; }
+        .msg-actions button {
+            font-size: 0.65rem; padding: 2px 8px; border: 1px solid #475569; border-radius: 6px;
+            background: transparent; color: #94a3b8; cursor: pointer;
+        }
+        .msg-actions button:hover { background: #334155; color: #e2e8f0; }
+        .msg-actions button.ban-btn:hover { border-color: #ef4444; color: #ef4444; }
+        .msg-actions button.mute-btn:hover { border-color: #f59e0b; color: #f59e0b; }
+        .banned-overlay {
+            position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b;
+            border-top: 2px solid #ef4444; padding: 1.5rem; text-align: center; z-index: 50;
+        }
+        .banned-overlay p { color: #ef4444; font-weight: 600; font-size: 1rem; }
+        .banned-overlay small { color: #64748b; font-size: 0.8rem; }
+        .muted-tag { font-size: 0.6rem; color: #f59e0b; margin-left: 4px; }
+
+        /* Admin panel */
+        .admin-panel-btn {
+            background: none; border: 1px solid #475569; border-radius: 8px;
+            color: #94a3b8; font-size: 0.75rem; padding: 4px 10px; cursor: pointer;
+        }
+        .admin-panel-btn:hover { background: #334155; color: #e2e8f0; }
+        .admin-panel-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center; z-index: 90;
+        }
+        .admin-panel {
+            background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+            padding: 1.5rem; width: 360px; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .admin-panel h3 {
+            font-size: 1rem; margin-bottom: 1rem;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .admin-panel h4 { font-size: 0.8rem; color: #94a3b8; margin: 0.75rem 0 0.4rem; }
+        .admin-list-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.4rem 0.6rem; border-radius: 8px; background: #0f172a; margin-bottom: 0.3rem;
+        }
+        .admin-list-item span { font-size: 0.85rem; color: #e2e8f0; }
+        .admin-list-item small { font-size: 0.65rem; color: #64748b; margin-left: 4px; }
+        .admin-list-item button {
+            font-size: 0.7rem; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+            border: 1px solid #475569; background: transparent; color: #94a3b8;
+        }
+        .admin-list-item button:hover { background: #334155; color: #e2e8f0; }
+        .admin-empty { font-size: 0.8rem; color: #475569; font-style: italic; padding: 0.3rem 0; }
+        .admin-close {
+            margin-top: 1rem; width: 100%; padding: 0.6rem; border: none; border-radius: 10px;
+            background: #334155; color: #e2e8f0; font-size: 0.85rem; cursor: pointer;
+        }
+        .admin-close:hover { background: #475569; }
+        .admin-danger {
+            margin-top: 0.5rem; width: 100%; padding: 0.6rem; border: 1px solid #ef4444; border-radius: 10px;
+            background: transparent; color: #ef4444; font-size: 0.85rem; cursor: pointer;
+        }
+        .admin-danger:hover { background: rgba(239,68,68,0.15); }
+
+    </style>
+</head>
+<body>
+
+    <div id="debugBanner" style="position:fixed;left:12px;top:12px;padding:6px 10px;background:#fff;color:#111;border-radius:8px;z-index:9999;font-weight:700;font-family:inherit;display:none;">Debug: waiting...</div>
+
+    <!-- Username modal -->
+    <div class="modal-overlay" id="usernameModal">
+        <div class="modal">
+            <h2>Welcome to Chat</h2>
+            <p>Pick a username to start chatting</p>
+            <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20" autocomplete="off">
+            <div class="admin-toggle" onclick="document.getElementById('adminField').style.display='block';this.style.display='none'">🔑 Admin login</div>
+            <div class="admin-field" id="adminField">
+                <input type="password" id="adminInput" placeholder="Admin password..." autocomplete="off">
+            </div>
+            <button id="joinBtn" onclick="joinChat()">Join Chat</button>
+        </div>
+    </div>
+    
+
+    <div class="chat-header">
+        <h1>💬 Zaapiz's Live Chat</h1>
+        <div class="user-info">
+            <a class="donate-link" href="https://cash.app/$zaapizcash" target="_blank" rel="noopener noreferrer">💚 Donate</a>
+            <div class="goal-wrap">
+                <div class="goal-bar"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+                <span class="goal-text" id="goalText">$0/$0</span>
+            </div>
+            <button class="admin-panel-btn" id="changeUserBtn" onclick="openChangeUserModal()">Change Username</button>
+            <button class="admin-panel-btn" id="adminPanelBtn" style="display:none" onclick="openAdminPanel()">Admin</button>
+            <span id="headerUser"></span>
+            <span id="currentChannel" style="margin-left:12px; color:#94a3b8; font-size:0.9em;"></span>
+            
+        </div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+    <div id="typingIndicator" style="padding:0 1.5rem 0.5rem;min-height:18px;">
+        <span class="typing-bubble" aria-hidden="true"></span>
+        <span class="typing-text"></span>
+    </div>
+
+    <div class="chat-input" id="chatInputBar">
+        <input type="text" id="msgInput" placeholder="Type a message..." maxlength="500" autocomplete="off" disabled>
+        <!-- Image input and button removed -->
+        <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+    </div>
+    <div class="banned-overlay" id="bannedOverlay" style="display:none;">
+        <p>🚫 You have been banned from this chat.</p>
+        <small>Contact the admin if you think this is a mistake.</small>
+    </div>
+
+    <!-- Firebase SDK (compat version - works as plain script tags) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script>
+        // =====================================================
+        //  PASTE YOUR FIREBASE CONFIG BELOW
+        // =====================================================
+        var firebaseConfig = {
+            apiKey: "AIzaSyCm0yaVA5jAyu7A28hDCt6o9UW20Il2bsk",
+            authDomain: "zaapiz-game-corner-chat.firebaseapp.com",
+            databaseURL: "https://zaapiz-game-corner-chat-default-rtdb.firebaseio.com",
+            projectId: "zaapiz-game-corner-chat",
+            storageBucket: "zaapiz-game-corner-chat.firebasestorage.app",
+            messagingSenderId: "731335649032",
+            appId: "1:731335649032:web:6492e5c763a223f9c46ebd"
+        };
+        // =====================================================
+
+        // SHA-256 hash of the admin password (password itself is NOT stored)
+        // To change: pick a new password, hash it with SHA-256, paste the hex here
+        var ADMIN_HASH = '165c9fbc156f414fdebf3be47a3158f1f4261ddfe0dd719089789d5aa9e8609f';
+
+        // Whether an admin hash is configured
+        var HAS_ADMIN_HASH = typeof ADMIN_HASH !== 'undefined' && ADMIN_HASH && String(ADMIN_HASH).trim() !== '';
+
+        // Hide admin login UI and clear stored admin flag if ADMIN_HASH is not set.
+        (function() {
+            try {
+                var adminToggle = document.querySelector('.admin-toggle');
+                var adminField = document.getElementById('adminField');
+                var adminPanelBtn = document.getElementById('adminPanelBtn');
+                if (!HAS_ADMIN_HASH) {
+                    if (adminToggle) adminToggle.style.display = 'none';
+                    if (adminField) adminField.style.display = 'none';
+                    if (adminPanelBtn) adminPanelBtn.style.display = 'none';
+                    try { localStorage.setItem('chatAdmin', 'false'); } catch (e) {}
+                } else {
+                    if (adminToggle) adminToggle.style.display = 'block';
+                    if (adminPanelBtn && localStorage.getItem('chatAdmin') === 'true') adminPanelBtn.style.display = 'inline-block';
+                }
+            } catch (e) {}
+        })();
+
+        async function hashPassword(pw) {
+            var buf = new TextEncoder().encode(pw);
+            var hashBuf = await crypto.subtle.digest('SHA-256', buf);
+            var arr = Array.from(new Uint8Array(hashBuf));
+            return arr.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+        }
+
+        firebase.initializeApp(firebaseConfig);
+        try { if (debugEnabled) document.getElementById('debugBanner').textContent = '[DEBUG] script initialized'; } catch(e) {}
+        // Global debug hooks to capture errors in the browser console
+        window.addEventListener('error', function(e) {
+            console.error('[GLOBAL ERROR]', e.message, e.filename + ':' + e.lineno, e.error);
+            try { if (debugEnabled) document.getElementById('debugBanner').textContent = '[GLOBAL ERROR] ' + e.message; } catch(err) {}
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('[UNHANDLED REJECTION]', e.reason);
+            try { if (debugEnabled) document.getElementById('debugBanner').textContent = '[UNHANDLED REJECTION] ' + (e.reason && e.reason.message ? e.reason.message : e.reason); } catch(err) {}
+        });
+        var db = firebase.database();
+        var chatRef = db.ref('chatroom/messages');
+        
+        var readsRef = db.ref('chatroom/reads');
+        var bannedRef = db.ref('chatroom/banned');
+        var mutedRef = db.ref('chatroom/muted');
+        var goalRef = db.ref('chatroom/goal');
+        var typingRef = db.ref('chatroom/typing');
+        // IP tracking and IP-ban lists
+        var ipRef = db.ref('chatroom/ips');
+        var bannedIpsRef = db.ref('chatroom/bannedIps');
+        // Server-managed admin list (chatroom/admins)
+        var adminsRef = db.ref('chatroom/admins');
+        var admins = {};
+
+        // Listen for admin list changes (server-managed). Updates local `isAdmin` and UI when needed.
+        adminsRef.on('value', function(snap) {
+            admins = snap.val() || {};
+            try {
+                var btn = document.getElementById('adminPanelBtn');
+                var header = document.getElementById('headerUser');
+                var lowerName = username && username.toLowerCase && username.toLowerCase();
+                var iAmAdminInDB = lowerName && admins[lowerName];
+                if (iAmAdminInDB) {
+                    if (!isAdmin) {
+                        isAdmin = true;
+                        try { localStorage.setItem('chatAdmin', 'true'); } catch(e) {}
+                        if (btn) btn.style.display = 'inline-block';
+                        if (header) header.textContent = username + ' ⭐';
+                    }
+                } else {
+                    var isPasswordAdmin = (typeof HAS_ADMIN_HASH !== 'undefined' && HAS_ADMIN_HASH) && localStorage.getItem('chatAdmin') === 'true';
+                    if (!isPasswordAdmin) {
+                        if (isAdmin) {
+                            isAdmin = false;
+                            try { localStorage.setItem('chatAdmin', 'false'); } catch(e) {}
+                            if (btn) btn.style.display = 'none';
+                            if (header) header.textContent = username || '';
+                        }
+                    }
+                }
+            } catch(e) {}
+        });
+
+        // Current messaging target: { type: 'public'|'dm'|'group', id: string|null, label: string }
+        var currentChannel = { type: 'public', id: null, label: 'Public' };
+        var currentMessageRef = chatRef;
+        var debugEnabled = false;
+
+        var donationGoal = { current: 0, target: 0, month: '' };
+        var bannedIps = {};
+        var currentUserIP = null;
+
+        function ipKey(ip) { return String(ip || '').replace(/\./g, '_'); }
+
+        // no presence/online users UI
+
+        // Listen for goal updates & auto-reset monthly
+        goalRef.on('value', function(snap) {
+            var data = snap.val() || {};
+            var now = new Date();
+            var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            if (data.month !== currentMonth) {
+                // New month — reset goal
+                goalRef.update({ current: 0, month: currentMonth });
+                donationGoal.current = 0;
+                donationGoal.target = data.target || 0;
+                donationGoal.month = currentMonth;
+            } else {
+                donationGoal.current = data.current || 0;
+                donationGoal.target = data.target || 0;
+                donationGoal.month = data.month;
+            }
+            updateGoalBar();
+        });
+
+        function updateGoalBar() {
+            var pct = donationGoal.target > 0 ? Math.min(100, Math.round((donationGoal.current / donationGoal.target) * 100)) : 0;
+            document.getElementById('goalFill').style.width = pct + '%';
+            document.getElementById('goalText').textContent = '$' + donationGoal.current + '/$' + donationGoal.target;
+        }
+
+        function updateGoal(newCurrent, newTarget) {
+            if (!isAdmin) return;
+            var now = new Date();
+            var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            goalRef.set({ current: Number(newCurrent) || 0, target: Number(newTarget) || 0, month: currentMonth });
+        }
+
+        var MAX_MESSAGES = 200;
+        var username = '';
+        var isAdmin = false;
+        var bannedUsers = {};
+        var mutedUsers = {};
+        var renderedKeys = new Set();
+        var lastSender = '';
+        var lastTimestamp = 0;
+        var typingTimeout = null;
+        var lastTyped = 0;
+
+        // Listen for ban/mute lists and update UI accordingly
+        bannedRef.on('value', function(snap) {
+            bannedUsers = snap.val() || {};
+            updateBanMuteUI();
+        });
+        mutedRef.on('value', function(snap) {
+            mutedUsers = snap.val() || {};
+            // Auto-clean expired mutes
+            var now = Date.now();
+            Object.keys(mutedUsers).forEach(function(u) {
+                if (typeof mutedUsers[u] === 'number' && mutedUsers[u] <= now) {
+                    mutedRef.child(u).remove();
+                }
+            });
+            updateBanMuteUI();
+        });
+        // Listen for banned IPs
+        bannedIpsRef.on('value', function(snap) {
+            bannedIps = snap.val() || {};
+            updateBanMuteUI();
+        });
+
+        // Update UI for banned or muted users. Shows overlay and disables input.
+        function updateBanMuteUI() {
+            var changeBtn = document.getElementById('changeUserBtn');
+            var overlay = document.getElementById('bannedOverlay');
+            var chatInputBar = document.getElementById('chatInputBar');
+            var msgInput = document.getElementById('msgInput');
+            var sendBtn = document.getElementById('sendBtn');
+
+            var isBanned = username && bannedUsers[username.toLowerCase()];
+            var muteVal = username && mutedUsers[username.toLowerCase()];
+            var isMuted = muteVal && (typeof muteVal !== 'number' || muteVal > Date.now());
+
+            if (isBanned) {
+                if (chatInputBar) chatInputBar.style.display = 'none';
+                if (overlay) {
+                    overlay.style.display = 'block';
+                    // keep original banned message
+                    try {
+                        overlay.querySelector('p').textContent = '🚫 You have been banned from this chat.';
+                        overlay.querySelector('small').textContent = 'Contact the admin if you think this is a mistake.';
+                    } catch (e) {}
+                }
+                if (changeBtn) changeBtn.style.display = 'none';
+                if (msgInput) { msgInput.disabled = true; }
+                if (sendBtn) { sendBtn.disabled = true; }
+                return;
+            }
+
+            if (isMuted) {
+                if (chatInputBar) chatInputBar.style.display = 'none';
+                if (overlay) {
+                    overlay.style.display = 'block';
+                    try {
+                        overlay.querySelector('p').textContent = '🔇 You have been muted.';
+                        overlay.querySelector('small').textContent = 'You cannot send messages until unmuted by an admin.';
+                    } catch (e) {}
+                }
+                if (changeBtn) changeBtn.style.display = 'none';
+                if (msgInput) { msgInput.disabled = true; }
+                if (sendBtn) { sendBtn.disabled = true; }
+                return;
+            }
+
+            // Not banned or muted
+            if (chatInputBar) chatInputBar.style.display = 'flex';
+            if (overlay) overlay.style.display = 'none';
+            if (changeBtn) changeBtn.style.display = 'inline-block';
+            if (msgInput) { msgInput.disabled = false; }
+            if (sendBtn) { sendBtn.disabled = false; }
+        }
+
+        // Restore username
+        var savedUser = localStorage.getItem('chatUsername');
+        if (savedUser) {
+            username = savedUser;
+            // Only honor stored admin flag if an ADMIN_HASH is configured
+            isAdmin = (typeof HAS_ADMIN_HASH !== 'undefined' && HAS_ADMIN_HASH) && localStorage.getItem('chatAdmin') === 'true';
+            if (!isAdmin) {
+                try { localStorage.setItem('chatAdmin', 'false'); } catch(e) {}
+            }
+            document.getElementById('usernameModal').style.display = 'none';
+            document.getElementById('headerUser').textContent = username + (isAdmin ? ' ⭐' : '');
+            enableChat();
+            checkIfBanned();
+        }
+
+        document.getElementById('usernameInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') joinChat();
+        });
+
+
+        function setTyping(isTyping) {
+            console.log('[DEBUG] setTyping()', isTyping);
+            if (!username) return;
+            if (isTyping) {
+                typingRef.child(username).set(firebase.database.ServerValue.TIMESTAMP);
+                lastTyped = Date.now();
+                if (typingTimeout) clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(function() {
+                    if (Date.now() - lastTyped >= 2500) typingRef.child(username).remove();
+                }, 3000);
+            } else {
+                typingRef.child(username).remove();
+            }
+        }
+
+        document.getElementById('msgInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                var sendBtn = document.getElementById('sendBtn');
+                if (sendBtn) sendBtn.click();
+            }
+            setTyping(true);
+        });
+        document.getElementById('msgInput').addEventListener('input', function() {
+            setTyping(true);
+        });
+        document.getElementById('msgInput').addEventListener('blur', function() {
+            setTyping(false);
+        });
+        // Image input and button event listeners removed
+
+        async function joinChat() {
+            console.log('[DEBUG] joinChat() called');
+            var name = document.getElementById('usernameInput').value.trim();
+            if (!name) return;
+            name = name.replace(/[<>&"']/g, '');
+            if (!name) return;
+            username = name;
+            localStorage.setItem('chatUsername', username);
+
+            // Check admin password via hash comparison (only if admin hash configured)
+            var adminPw = (document.getElementById('adminInput') || {}).value || '';
+            if (typeof HAS_ADMIN_HASH !== 'undefined' && HAS_ADMIN_HASH && adminPw) {
+                var hash = await hashPassword(adminPw);
+                if (hash === ADMIN_HASH) {
+                    isAdmin = true;
+                    try { localStorage.setItem('chatAdmin', 'true'); } catch(e) {}
+                }
+            }
+
+            // Attempt to resolve user's public IP and store it under chatroom/ips/<username>
+            try {
+                var ipResp = await fetch('https://api.ipify.org?format=json');
+                if (ipResp && ipResp.ok) {
+                    var ipJson = await ipResp.json();
+                    currentUserIP = ipJson.ip;
+                    try { ipRef.child(username.toLowerCase()).set(currentUserIP); } catch (e) {}
+                }
+            } catch (e) { /* ignore IP lookup failures */ }
+
+            document.getElementById('usernameModal').style.display = 'none';
+            document.getElementById('headerUser').textContent = username + (isAdmin ? ' ⭐' : '');
+            enableChat();
+            updateBanMuteUI();
+
+            // Send join message
+            chatRef.push({
+                type: 'system',
+                text: username + ' joined the chat',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function enableChat() {
+            console.log('[DEBUG] enableChat() — username:', username, 'isAdmin:', isAdmin);
+            document.getElementById('msgInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('msgInput').focus();
+            if (isAdmin) document.getElementById('adminPanelBtn').style.display = 'inline-block';
+            // Default to public channel on join
+            switchChannel('public', null, 'Public');
+            listenForTyping();
+        }
+
+        function listenForOnlineUsers() {
+            // presence/online feature removed
+        }
+
+        // Ensure there's a listener placeholder for typing (prevents runtime errors)
+        function listenForTyping() {
+            // Clean up typing entry on unload
+            window.addEventListener('beforeunload', function() {
+                if (username) {
+                    typingRef.child(username).remove();
+                }
+            });
+        }
+
+        function startPresenceHeartbeat() {
+            // presence feature removed
+        }
+
+        function sendMessage() {
+            if (bannedUsers[username.toLowerCase()]) return;
+            var myMute = mutedUsers[username.toLowerCase()];
+            if (myMute && (typeof myMute !== 'number' || myMute > Date.now())) return;
+            var input = document.getElementById('msgInput');
+            var text = input.value.trim();
+            if (!text) return;
+            text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Push to the current channel's message ref
+            var payload = {
+                type: 'msg',
+                user: username,
+                text: text,
+                admin: isAdmin || false,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            };
+            if (!currentMessageRef) currentMessageRef = chatRef;
+            currentMessageRef.push(payload);
+            input.value = '';
+            input.focus();
+            setTyping(false);
+        }
+
+        function sendImage(dataUrl) {
+            if (bannedUsers[username.toLowerCase()]) return;
+            var myMute = mutedUsers[username.toLowerCase()];
+            if (myMute && (typeof myMute !== 'number' || myMute > Date.now())) return;
+            chatRef.push({
+                type: 'msg',
+                user: username,
+                image: dataUrl,
+                admin: isAdmin || false,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function banUser(name) {
+            if (!isAdmin || !name) return;
+            bannedRef.child(name.toLowerCase()).set(true);
+            // Also ban the recorded IP for that username (if any)
+            try {
+                ipRef.child(name.toLowerCase()).once('value').then(function(snap) {
+                    var ip = snap.val();
+                    if (ip) {
+                        var key = ipKey(ip);
+                        bannedIpsRef.child(key).set(true);
+                    }
+                });
+            } catch (e) {}
+            chatRef.push({
+                type: 'system',
+                text: name + ' was banned by ' + username,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function unbanUser(name) {
+            if (!isAdmin || !name) return;
+            bannedRef.child(name.toLowerCase()).remove();
+            chatRef.push({
+                type: 'system',
+                text: name + ' was unbanned by ' + username,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function muteUser(name) {
+            if (!isAdmin || !name) return;
+            // Store mute expiry: current time + 1 hour
+            mutedRef.child(name.toLowerCase()).set(Date.now() + 3600000);
+            // Also add the recorded IP to banned IPs when muted
+            try {
+                ipRef.child(name.toLowerCase()).once('value').then(function(snap) {
+                    var ip = snap.val();
+                    if (ip) {
+                        var key = ipKey(ip);
+                        bannedIpsRef.child(key).set(true);
+                    }
+                });
+            } catch (e) {}
+            chatRef.push({
+                type: 'system',
+                text: name + ' was muted for 1 hour by ' + username,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function unmuteUser(name) {
+            if (!isAdmin || !name) return;
+            mutedRef.child(name.toLowerCase()).remove();
+            chatRef.push({
+                type: 'system',
+                text: name + ' was unmuted by ' + username,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function revokeAdmin(name) {
+            if (!isAdmin || !name) return;
+            try {
+                var lower = name.toLowerCase();
+                if (username && lower === username.toLowerCase()) return;
+                if (!confirm('Revoke admin privileges from ' + name + '?')) return;
+                adminsRef.child(lower).remove().then(function() {
+                    chatRef.push({
+                        type: 'system',
+                        text: name + ' was demoted by ' + username,
+                        ts: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }).catch(function(err) { console.error('revokeAdmin failed', err); });
+            } catch (e) { console.error('revokeAdmin error', e); }
+        }
+
+        function clearChat() {
+            if (!isAdmin) return;
+            chatRef.remove().then(function() {
+                document.getElementById('messages').innerHTML = '';
+                renderedKeys.clear();
+                lastSender = '';
+                lastTimestamp = 0;
+                chatRef.push({
+                    type: 'system',
+                    text: 'Chat was cleared by ' + username,
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                });
+            });
+        }
+
+        function listenForMessages() {
+            console.warn('listenForMessages() deprecated; use switchChannel()/attachMessageListener()');
+        }
+
+        function attachMessageListener(ref) {
+            if (!ref) ref = chatRef;
+            // detach previous
+            if (currentMessageRef && currentMessageRef.off) currentMessageRef.off();
+            currentMessageRef = ref;
+            // clear rendered list and UI
+            document.getElementById('messages').innerHTML = '';
+            renderedKeys.clear();
+            // attach
+            ref.orderByChild('ts').limitToLast(MAX_MESSAGES).on('child_added', function(snap) {
+                var data = snap.val();
+                if (!data) return;
+                var key = snap.key;
+                if (renderedKeys.has(key)) return;
+                renderedKeys.add(key);
+                renderMessage(data, key);
+            });
+        }
+
+        function switchChannel(type, id, label) {
+            currentChannel.type = 'public';
+            currentChannel.id = null;
+            currentChannel.label = 'Public';
+            document.getElementById('currentChannel').textContent = '[' + currentChannel.label + ']';
+            // Only public channel is supported now — attach public message listener
+            attachMessageListener(chatRef);
+        }
+
+        function renderMessage(data, key) {
+            console.log('[DEBUG] renderMessage()', key, data);
+            if (!data || !data.ts) return;
+            var container = document.getElementById('messages');
+
+            if (data.type === 'system') {
+                var div = document.createElement('div');
+                div.className = 'system-msg';
+                div.textContent = data.text;
+                container.appendChild(div);
+                lastSender = '';
+                lastTimestamp = data.ts;
+                autoScroll();
+                return;
+            }
+
+            if (data.type !== 'msg') return;
+
+            // Hide muted users' messages (unless you're admin)
+            var muteVal = mutedUsers[data.user.toLowerCase()];
+            var isMutedNow = muteVal && (typeof muteVal !== 'number' || muteVal > Date.now());
+            if (isMutedNow && !isAdmin) return;
+
+            var isSelf = data.user === username;
+            var isGrouped = data.user === lastSender && (data.ts - lastTimestamp) < 60000;
+
+            var msgDiv = document.createElement('div');
+            msgDiv.className = 'msg ' + (isSelf ? 'self' : 'other');
+
+            if (!isGrouped) {
+                var header = document.createElement('div');
+                header.className = 'msg-group-header';
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'msg-name';
+                nameSpan.textContent = data.user + (data.admin ? ' ⭐' : '');
+                var muteExp = mutedUsers[data.user.toLowerCase()];
+                var isUserMuted = muteExp && (typeof muteExp !== 'number' || muteExp > Date.now());
+                if (isUserMuted) {
+                    var mutedTag = document.createElement('span');
+                    mutedTag.className = 'muted-tag';
+                    mutedTag.textContent = '[muted]';
+                    header.appendChild(nameSpan);
+                    header.appendChild(mutedTag);
+                } else {
+                    header.appendChild(nameSpan);
+                }
+                var timeSpan = document.createElement('span');
+                timeSpan.textContent = ' \u00b7 ' + formatTime(data.ts);
+                header.appendChild(timeSpan);
+                msgDiv.appendChild(header);
+            }
+
+            var bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            if (data.image) {
+                var img = document.createElement('img');
+                img.src = data.image;
+                img.alt = '[image]';
+                img.style.maxWidth = '180px';
+                img.style.maxHeight = '180px';
+                img.style.display = 'block';
+                img.style.borderRadius = '8px';
+                img.style.margin = '2px 0';
+                bubble.appendChild(img);
+                if (data.text) {
+                    var cap = document.createElement('div');
+                    cap.textContent = data.text;
+                    cap.style.fontSize = '0.85em';
+                    cap.style.marginTop = '2px';
+                    bubble.appendChild(cap);
+                }
+            } else {
+                bubble.textContent = data.text;
+            }
+            msgDiv.appendChild(bubble);
+
+            // Read receipts UI
+            var readWrap = document.createElement('div');
+            readWrap.className = 'read-receipt';
+            msgDiv.appendChild(readWrap);
+
+            // Mark message as read by this user
+            if (username && key) {
+                readsRef.child(key).child(username).set(firebase.database.ServerValue.TIMESTAMP);
+            }
+
+            // Listen for read receipts changes
+            if (key) {
+                readsRef.child(key).on('value', function(snap) {
+                    var val = snap.val() || {};
+                    var names = Object.keys(val || {});
+                    // exclude the author themselves for display if desired
+                    var seenBy = names.filter(function(n){ return n !== data.user; });
+                    if (seenBy.length === 0) readWrap.textContent = '';
+                    else if (seenBy.length === 1) readWrap.textContent = 'Seen by ' + seenBy[0];
+                    else readWrap.textContent = 'Seen by ' + seenBy.length + ' users';
+                });
+            }
+
+            // Admin mod actions
+            if (isAdmin && !isSelf) {
+                var actions = document.createElement('div');
+                actions.className = 'msg-actions';
+                var isBanned = bannedUsers[data.user.toLowerCase()];
+                var muteExpiry = mutedUsers[data.user.toLowerCase()];
+                var isMuted = muteExpiry && (typeof muteExpiry !== 'number' || muteExpiry > Date.now());
+
+                var banBtn = document.createElement('button');
+                banBtn.className = 'ban-btn';
+                banBtn.textContent = isBanned ? 'Unban' : 'Ban';
+                banBtn.onclick = (function(u, b) { return function() { b ? unbanUser(u) : banUser(u); }; })(data.user, isBanned);
+                actions.appendChild(banBtn);
+
+                var muteBtn = document.createElement('button');
+                muteBtn.className = 'mute-btn';
+                muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+                muteBtn.onclick = (function(u, m) { return function() { m ? unmuteUser(u) : muteUser(u); }; })(data.user, isMuted);
+                actions.appendChild(muteBtn);
+
+                msgDiv.appendChild(actions);
+            }
+
+            container.appendChild(msgDiv);
+            lastSender = data.user;
+            lastTimestamp = data.ts;
+            autoScroll();
+        }
+
+        function formatTime(ts) {
+            var d = new Date(ts);
+            var h = d.getHours();
+            var m = d.getMinutes();
+            var ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            return h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+        }
+
+        function autoScroll() {
+            requestAnimationFrame(function() {
+                var el = document.getElementById('messages');
+                el.scrollTop = el.scrollHeight;
+            });
+        }
+
+        function openAdminPanel() {
+            var existing = document.getElementById('adminPanelOverlay');
+            if (existing) existing.remove();
+
+            var overlay = document.createElement('div');
+            overlay.className = 'admin-panel-overlay';
+            overlay.id = 'adminPanelOverlay';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            var panel = document.createElement('div');
+            panel.className = 'admin-panel';
+
+            var title = document.createElement('h3');
+            title.textContent = '⚙️ Admin Panel';
+            panel.appendChild(title);
+
+            // Admins section (server-managed admin list)
+            var ah = document.createElement('h4');
+            ah.textContent = '⭐ Admins';
+            panel.appendChild(ah);
+            // show placeholder while loading
+            var adminsPlaceholder = document.createElement('div');
+            adminsPlaceholder.className = 'admin-empty';
+            adminsPlaceholder.textContent = 'Loading admins...';
+            panel.appendChild(adminsPlaceholder);
+
+            // Fetch live admins list and render (avoid stale or empty UI)
+            adminsRef.once('value').then(function(snapAdmin) {
+                try {
+                    var adminsObj = snapAdmin.val();
+                    if (!adminsObj || typeof adminsObj !== 'object') { adminsObj = {}; }
+
+                    // Fallback: if the snapshot is empty but we have a cached `admins` from the on() listener, use that
+                    if (Object.keys(adminsObj).length === 0 && admins && typeof admins === 'object' && Object.keys(admins).length > 0) {
+                        console.warn('openAdminPanel: using cached admins as fallback');
+                        adminsObj = admins;
+                    }
+
+                    if (adminsPlaceholder.parentNode) adminsPlaceholder.parentNode.removeChild(adminsPlaceholder);
+                    var adminKeys = Object.keys(adminsObj);
+                    if (adminKeys.length === 0) {
+                        var emptyAdmins = document.createElement('div');
+                        emptyAdmins.className = 'admin-empty';
+                        emptyAdmins.textContent = 'No admins';
+                        panel.appendChild(emptyAdmins);
+                    } else {
+                        adminKeys.forEach(function(uKey) {
+                            var u = String(uKey || '');
+                            var item = document.createElement('div');
+                            item.className = 'admin-list-item';
+                            var span = document.createElement('span');
+                            span.textContent = u + ((typeof username === 'string' && username.toLowerCase() === u.toLowerCase()) ? ' (you)' : '');
+                            item.appendChild(span);
+                            if (isAdmin && typeof username === 'string' && username.toLowerCase() !== u.toLowerCase()) {
+                                var btn = document.createElement('button');
+                                btn.textContent = 'Revoke';
+                                btn.onclick = function() {
+                                    if (confirm('Revoke admin privileges from ' + u + '?')) {
+                                        revokeAdmin(u);
+                                        overlay.remove();
+                                    }
+                                };
+                                item.appendChild(btn);
+                            }
+                            panel.appendChild(item);
+                        });
+                    }
+
+                    // Append a small debug dump so we can inspect what the client saw
+                    var dbg = document.createElement('pre');
+                    dbg.style.cssText = 'background:#071229;color:#9ae6b4;padding:8px;border-radius:6px;margin-top:8px;max-height:160px;overflow:auto;font-size:0.75rem;';
+                    dbg.textContent = 'Admins snapshot:\n' + JSON.stringify(adminsObj, null, 2) + '\n\nCached admins var:\n' + JSON.stringify(admins || {}, null, 2);
+                    panel.appendChild(dbg);
+                } catch (e) {
+                    if (adminsPlaceholder.parentNode) adminsPlaceholder.parentNode.removeChild(adminsPlaceholder);
+                    var errDiv = document.createElement('div');
+                    errDiv.className = 'admin-empty';
+                    errDiv.textContent = 'Error loading admins: ' + (e && e.message ? e.message : String(e));
+                    panel.appendChild(errDiv);
+                    console.error('openAdminPanel: failed to render admins', e);
+
+                    // If we have a cached admins object, render that as a last-resort fallback so revoke UI can still appear
+                    try {
+                        if (admins && typeof admins === 'object' && Object.keys(admins).length > 0) {
+                            var fbHeader = document.createElement('div');
+                            fbHeader.className = 'admin-empty';
+                            fbHeader.textContent = 'Showing cached admins (fallback)';
+                            panel.appendChild(fbHeader);
+                            Object.keys(admins).forEach(function(k) {
+                                var u = String(k || '');
+                                var item = document.createElement('div');
+                                item.className = 'admin-list-item';
+                                var span = document.createElement('span');
+                                span.textContent = u + ((typeof username === 'string' && username.toLowerCase() === u.toLowerCase()) ? ' (you)' : '');
+                                item.appendChild(span);
+                                if (isAdmin && typeof username === 'string' && username.toLowerCase() !== u.toLowerCase()) {
+                                    var btn = document.createElement('button');
+                                    btn.textContent = 'Revoke';
+                                    btn.onclick = function() {
+                                        if (confirm('Revoke admin privileges from ' + u + '?')) {
+                                            revokeAdmin(u);
+                                            overlay.remove();
+                                        }
+                                    };
+                                    item.appendChild(btn);
+                                }
+                                panel.appendChild(item);
+                            });
+                        }
+                    } catch (ee) { console.error('openAdminPanel fallback render failed', ee); }
+                }
+            }).catch(function(err) {
+                if (adminsPlaceholder.parentNode) adminsPlaceholder.parentNode.removeChild(adminsPlaceholder);
+                var errDiv = document.createElement('div');
+                errDiv.className = 'admin-empty';
+                errDiv.textContent = 'Error loading admins: ' + (err && err.message ? err.message : String(err));
+                panel.appendChild(errDiv);
+                console.error('openAdminPanel adminsRef.once error', err);
+
+                // also show cached admins if present
+                try {
+                    if (admins && typeof admins === 'object' && Object.keys(admins).length > 0) {
+                        var fbHeader = document.createElement('div');
+                        fbHeader.className = 'admin-empty';
+                        fbHeader.textContent = 'Showing cached admins (fallback)';
+                        panel.appendChild(fbHeader);
+                        Object.keys(admins).forEach(function(k) {
+                            var u = String(k || '');
+                            var item = document.createElement('div');
+                            item.className = 'admin-list-item';
+                            var span = document.createElement('span');
+                            span.textContent = u + ((typeof username === 'string' && username.toLowerCase() === u.toLowerCase()) ? ' (you)' : '');
+                            item.appendChild(span);
+                            if (isAdmin && typeof username === 'string' && username.toLowerCase() !== u.toLowerCase()) {
+                                var btn = document.createElement('button');
+                                btn.textContent = 'Revoke';
+                                btn.onclick = function() {
+                                    if (confirm('Revoke admin privileges from ' + u + '?')) {
+                                        revokeAdmin(u);
+                                        overlay.remove();
+                                    }
+                                };
+                                item.appendChild(btn);
+                            }
+                            panel.appendChild(item);
+                        });
+                    }
+                } catch (ee) { console.error('openAdminPanel fallback render failed', ee); }
+            });
+
+            // Banned users section
+            var bh = document.createElement('h4');
+            bh.textContent = '🚫 Banned Users';
+            panel.appendChild(bh);
+
+            var bannedKeys = Object.keys(bannedUsers);
+            if (bannedKeys.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'admin-empty';
+                empty.textContent = 'No banned users';
+                panel.appendChild(empty);
+            } else {
+                bannedKeys.forEach(function(u) {
+                    var item = document.createElement('div');
+                    item.className = 'admin-list-item';
+                    var span = document.createElement('span');
+                    span.textContent = u;
+                    var btn = document.createElement('button');
+                    btn.textContent = 'Unban';
+                    btn.onclick = function() { unbanUser(u); overlay.remove(); };
+                    item.appendChild(span);
+                    item.appendChild(btn);
+                    panel.appendChild(item);
+                });
+            }
+
+            // Muted users section
+            var mh = document.createElement('h4');
+            mh.textContent = '🔇 Muted Users';
+            panel.appendChild(mh);
+
+            var now = Date.now();
+            var mutedKeys = Object.keys(mutedUsers).filter(function(u) {
+                var v = mutedUsers[u];
+                return v && (typeof v !== 'number' || v > now);
+            });
+            if (mutedKeys.length === 0) {
+                var empty2 = document.createElement('div');
+                empty2.className = 'admin-empty';
+                empty2.textContent = 'No muted users';
+                panel.appendChild(empty2);
+            } else {
+                mutedKeys.forEach(function(u) {
+                    var item = document.createElement('div');
+                    item.className = 'admin-list-item';
+                    var span = document.createElement('span');
+                    span.textContent = u;
+                    var exp = mutedUsers[u];
+                    if (typeof exp === 'number') {
+                        var mins = Math.max(0, Math.ceil((exp - now) / 60000));
+                        var sm = document.createElement('small');
+                        sm.textContent = mins + 'min left';
+                        span.appendChild(sm);
+                    }
+                    var btn = document.createElement('button');
+                    btn.textContent = 'Unmute';
+                    btn.onclick = function() { unmuteUser(u); overlay.remove(); };
+                    item.appendChild(span);
+                    item.appendChild(btn);
+                    panel.appendChild(item);
+                });
+            }
+
+            // Donation goal section
+            var gh = document.createElement('h4');
+            gh.textContent = '💚 Donation Goal';
+            panel.appendChild(gh);
+
+            var goalRow = document.createElement('div');
+            goalRow.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.5rem;';
+            var curInput = document.createElement('input');
+            curInput.type = 'number'; curInput.min = '0'; curInput.step = '1';
+            curInput.value = donationGoal.current;
+            curInput.placeholder = 'Current $';
+            curInput.style.cssText = 'flex:1;padding:0.4rem;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:0.85rem;outline:none;';
+            var tarInput = document.createElement('input');
+            tarInput.type = 'number'; tarInput.min = '0'; tarInput.step = '1';
+            tarInput.value = donationGoal.target;
+            tarInput.placeholder = 'Goal $';
+            tarInput.style.cssText = 'flex:1;padding:0.4rem;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:0.85rem;outline:none;';
+            var saveGoalBtn = document.createElement('button');
+            saveGoalBtn.textContent = 'Save';
+            saveGoalBtn.style.cssText = 'padding:0.4rem 0.8rem;border:none;border-radius:8px;background:#10b981;color:white;font-size:0.8rem;cursor:pointer;';
+            saveGoalBtn.onclick = function() { updateGoal(curInput.value, tarInput.value); overlay.remove(); };
+            goalRow.appendChild(curInput);
+            goalRow.appendChild(tarInput);
+            goalRow.appendChild(saveGoalBtn);
+            panel.appendChild(goalRow);
+
+            // Debug section
+            var dh = document.createElement('h4');
+            dh.textContent = '🐞 Debug';
+            panel.appendChild(dh);
+
+            var toggleDbgBtn = document.createElement('button');
+            toggleDbgBtn.textContent = debugEnabled ? 'Disable Debug' : 'Enable Debug';
+            toggleDbgBtn.style.cssText = 'padding:0.4rem 0.8rem;border:none;border-radius:8px;background:#475569;color:white;font-size:0.8rem;cursor:pointer;margin-bottom:6px;';
+            toggleDbgBtn.onclick = function() {
+                var b = document.getElementById('debugBanner');
+                if (!b) return alert('Debug banner not found');
+                debugEnabled = !debugEnabled;
+                b.style.display = debugEnabled ? 'block' : 'none';
+                toggleDbgBtn.textContent = debugEnabled ? 'Disable Debug' : 'Enable Debug';
+                if (debugEnabled) {
+                    try { document.getElementById('debugBanner').textContent = '[DEBUG] enabled'; } catch(e) {}
+                } else {
+                    try { document.getElementById('debugBanner').textContent = ''; } catch(e) {}
+                }
+                updateDbgInfo();
+            };
+            panel.appendChild(toggleDbgBtn);
+
+            var dbgRefresh = document.createElement('button');
+            dbgRefresh.textContent = 'Refresh Debug Info';
+            dbgRefresh.style.cssText = 'padding:0.4rem 0.8rem;border:none;border-radius:8px;background:#334155;color:white;font-size:0.8rem;cursor:pointer;margin-left:8px;';
+            panel.appendChild(dbgRefresh);
+
+            var dbgInfo = document.createElement('pre');
+            dbgInfo.style.cssText = 'background:#0f172a;color:#e2e8f0;padding:8px;border-radius:8px;margin-top:8px;max-height:120px;overflow:auto;font-size:0.75rem;';
+            function updateDbgInfo() {
+                try {
+                    var b = document.getElementById('debugBanner');
+                    var banner = b ? b.textContent : '(none)';
+                    dbgInfo.textContent = 'Debug Enabled: ' + (debugEnabled ? 'yes' : 'no') + '\nUser: ' + (username || '(none)') + '\nUA: ' + navigator.userAgent + '\nBanner: ' + banner;
+                } catch (e) { dbgInfo.textContent = 'Error reading debug info'; }
+            }
+            dbgRefresh.onclick = updateDbgInfo;
+            updateDbgInfo();
+            panel.appendChild(dbgInfo);
+
+            var clearBtn = document.createElement('button');
+            clearBtn.className = 'admin-danger';
+            clearBtn.textContent = '🗑️ Clear All Chat';
+            clearBtn.onclick = function() {
+                if (confirm('Are you sure you want to clear all chat messages?')) {
+                    clearChat();
+                    overlay.remove();
+                }
+            };
+            panel.appendChild(clearBtn);
+
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'admin-close';
+            closeBtn.textContent = 'Close';
+            closeBtn.onclick = function() { overlay.remove(); };
+            panel.appendChild(closeBtn);
+
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        }
+        // Change Username button logic
+        function openChangeUserModal() {
+            document.getElementById('usernameModal').style.display = 'flex';
+            document.getElementById('usernameInput').value = '';
+            document.getElementById('adminInput').value = '';
+            document.getElementById('adminField').style.display = 'none';
+            try {
+                var toggle = document.querySelector('.admin-toggle');
+                if (typeof HAS_ADMIN_HASH !== 'undefined' && HAS_ADMIN_HASH) {
+                    if (toggle) toggle.style.display = 'block';
+                } else {
+                    if (toggle) toggle.style.display = 'none';
+                }
+            } catch (e) {}
+            document.getElementById('usernameInput').focus();
+        }
+
+        
+    </script>
+</body>
+</html>
